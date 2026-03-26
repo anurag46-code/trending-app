@@ -22,8 +22,6 @@ npm install
 ### 2. Configure API Keys
 Edit `.env` file with your API keys:
 ```bash
-# YouTube API is already configured
-YOUTUBE_API_KEY=AIzaSyBX_crze1IHZn6NpiDgI2y14iK4mTW6bnY
 
 # Add Reddit API when ready
 REDDIT_CLIENT_ID=your_client_id
