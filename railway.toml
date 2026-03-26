@@ -1,0 +1,13 @@
+[build]
+builder = "nixpacks"
+
+[deploy]
+startCommand = "npm start"
+restartPolicyType = "ON_FAILURE"
+
+[[services]]
+name = "trending-app"
+port = 3000
+
+[env]
+NODE_ENV = "production"

@@ -1,0 +1,293 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Trending AI Content Dashboard</title>
+    <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>🚀</text></svg>">
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { 
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: #111827; color: #f9fafb; line-height: 1.6;
+            padding: 20px;
+        }
+        .container { max-width: 1200px; margin: 0 auto; }
+        .header { text-align: center; margin-bottom: 2rem; }
+        .header h1 { 
+            font-size: 2.25rem; font-weight: 700;
+            background: linear-gradient(to right, #3b82f6, #9333ea);
+            -webkit-background-clip: text; background-clip: text; color: transparent;
+            margin-bottom: 0.5rem;
+        }
+        .stats { display: grid; grid-template-columns: repeat(3, 1fr); gap: 1.5rem; margin-bottom: 2rem; }
+        .stat-box { background: #1f2937; padding: 1.5rem; border-radius: 0.5rem; text-align: center; }
+        .stat-value { font-size: 1.875rem; font-weight: 700; }
+        .stat-label { color: #9ca3af; }
+        .main-content { display: grid; grid-template-columns: 2fr 1fr; gap: 2rem; }
+        .card { background: #1f2937; padding: 1.5rem; border-radius: 0.5rem; }
+        .card h2 { font-size: 1.5rem; font-weight: 700; margin-bottom: 1rem; }
+        .trend-item { 
+            border-left: 4px solid #3b82f6; background: #1f2937; 
+            padding: 1rem; margin-bottom: 1rem; border-radius: 0.5rem;
+        }
+        .trend-item.youtube { border-left-color: #ff0000; }
+        .trend-item.twitter { border-left-color: #1da1f2; }
+        .trend-item.reddit { border-left-color: #ff4500; }
+        .score-badge { 
+            background: #065f46; color: #6ee7b7; padding: 0.25rem 0.5rem;
+            border-radius: 0.25rem; font-size: 0.875rem; font-weight: 600;
+        }
+        .status-connected { color: #34d399; }
+        .status-disconnected { color: #f87171; }
+        button { 
+            background: #2563eb; color: white; border: none; padding: 0.5rem 1rem;
+            border-radius: 0.25rem; cursor: pointer; width: 100%; margin-bottom: 0.5rem;
+        }
+        button:hover { background: #1d4ed8; }
+        .loading { text-align: center; padding: 2rem; color: #6b7280; }
+        .error { text-align: center; padding: 2rem; color: #f87171; }
+        
+        @media (max-width: 768px) {
+            .stats { grid-template-columns: 1fr; }
+            .main-content { grid-template-columns: 1fr; }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <!-- Header -->
+        <header class="header">
+            <h1>🚀 Trending AI Content Dashboard</h1>
+            <p>Real-time monitoring of Claude Code, OpenClaw, and AI trends</p>
+            <div style="margin-top: 1rem;">
+                <span class="status-connected" id="connectionStatus">🟢 Connected</span>
+            </div>
+        </header>
+
+        <!-- Stats Overview -->
+        <div class="stats">
+            <div class="stat-box">
+                <div class="stat-value" id="totalItems">--</div>
+                <div class="stat-label">Total Items Tracked</div>
+            </div>
+            <div class="stat-box">
+                <div class="stat-value" id="lastUpdate">--</div>
+                <div class="stat-label">Last Update</div>
+            </div>
+            <div class="stat-box">
+                <div class="stat-value" id="topKeyword">--</div>
+                <div class="stat-label">Top Keyword</div>
+            </div>
+        </div>
+
+        <!-- Main Content -->
+        <div class="main-content">
+            <!-- Top Trends -->
+            <div class="card">
+                <h2>🔥 Top Trending Content</h2>
+                <div id="topTrends">
+                    <div class="loading">Loading trends...</div>
+                </div>
+            </div>
+
+            <!-- Controls -->
+            <div class="card">
+                <h2>⚙️ Controls</h2>
+                <button onclick="runManualCheck()">🔄 Run Manual Check</button>
+                <button onclick="showApiStatus()">🔧 API Status</button>
+                
+                <h3 style="margin-top: 1.5rem;">🔍 Tracking Keywords</h3>
+                <div id="keywordsList">
+                    <div style="display: flex; justify-content: space-between; margin: 0.5rem 0;">
+                        <span>claude code</span>
+                        <span class="status-connected">✓</span>
+                    </div>
+                    <div style="display: flex; justify-content: space-between; margin: 0.5rem 0;">
+                        <span>openclaw</span>
+                        <span class="status-connected">✓</span>
+                    </div>
+                    <div style="display: flex; justify-content: space-between; margin: 0.5rem 0;">
+                        <span>ai assistant</span>
+                        <span class="status-connected">✓</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <footer style="text-align: center; margin-top: 3rem; color: #6b7280;">
+            <p>Powered by Trending App • Updates every hour • <span id="updateStatus">Last check: --</span></p>
+        </footer>
+    </div>
+
+    <script>
+        class StaticDashboard {
+            constructor() {
+                this.currentData = null;
+                this.setupPolling();
+                this.loadInitialData();
+            }
+
+            async loadInitialData() {
+                try {
+                    const response = await fetch('/api/results/latest');
+                    const data = await response.json();
+                    this.currentData = data;
+                    this.updateDashboard(data);
+                } catch (error) {
+                    this.showError('Failed to load data from server');
+                }
+            }
+
+            setupPolling() {
+                // Poll for updates every 30 seconds
+                setInterval(async () => {
+                    try {
+                        const response = await fetch('/api/results/latest');
+                        const data = await response.json();
+                        if (JSON.stringify(data) !== JSON.stringify(this.currentData)) {
+                            this.currentData = data;
+                            this.updateDashboard(data);
+                            document.getElementById('updateStatus').textContent = `Last check: ${new Date().toLocaleTimeString()}`;
+                        }
+                    } catch (error) {
+                        document.getElementById('connectionStatus').className = 'status-disconnected';
+                        document.getElementById('connectionStatus').textContent = '🔴 Server Error';
+                    }
+                }, 30000);
+            }
+
+            updateDashboard(data) {
+                document.getElementById('connectionStatus').className = 'status-connected';
+                document.getElementById('connectionStatus').textContent = '🟢 Connected';
+                
+                this.updateStats(data);
+                this.updateTopTrends(data);
+            }
+
+            updateStats(data) {
+                document.getElementById('totalItems').textContent = data.totalItems || '--';
+                document.getElementById('lastUpdate').textContent = this.formatTime(data.timestamp);
+                
+                if (data.topItems && data.topItems.length > 0) {
+                    const keywordCounts = {};
+                    data.topItems.forEach(item => {
+                        if (item.keyword) keywordCounts[item.keyword] = (keywordCounts[item.keyword] || 0) + 1;
+                    });
+                    
+                    const topKeyword = Object.keys(keywordCounts).reduce((a, b) => 
+                        keywordCounts[a] > keywordCounts[b] ? a : b
+                    );
+                    document.getElementById('topKeyword').textContent = topKeyword;
+                }
+            }
+
+            updateTopTrends(data) {
+                const container = document.getElementById('topTrends');
+                
+                if (!data.topItems || data.topItems.length === 0) {
+                    container.innerHTML = '<div class="loading">No trending content found</div>';
+                    return;
+                }
+
+                const validItems = data.topItems.filter(item => 
+                    item.id && item.title && !item.error && !item.warning
+                );
+
+                if (validItems.length === 0) {
+                    container.innerHTML = `<div class="loading">
+                        ${data.topItems.some(item => item.warning) ? 'API credits depleted' : 'No valid content found'}
+                    </div>`;
+                    return;
+                }
+
+                container.innerHTML = validItems.slice(0, 5).map(item => `
+                    <div class="trend-item ${item.source}">
+                        <div style="display: flex; justify-content: space-between; align-items: start; margin-bottom: 0.5rem;">
+                            <h4 style="font-weight: 700; font-size: 1.125rem;">${this.escapeHtml(item.title)}</h4>
+                            <span class="score-badge">Score: ${item.score || 0}</span>
+                        </div>
+                        <div style="color: #d1d5db; margin-bottom: 0.5rem;">
+                            <strong>Source:</strong> ${item.source.toUpperCase()} • 
+                            <strong>Keyword:</strong> ${this.escapeHtml(item.keyword)}
+                        </div>
+                        ${item.content ? `<p style="color: #9ca3af; font-size: 0.875rem; margin-bottom: 0.75rem;">${this.escapeHtml(item.content.substring(0, 150))}...</p>` : ''}
+                        <div style="display: flex; justify-content: space-between; font-size: 0.875rem;">
+                            <span style="color: #60a5fa;">👤 ${this.escapeHtml(item.author || 'Unknown')}</span>
+                            <span style="color: #6b7280;">${this.formatTime(item.timestamp)}</span>
+                        </div>
+                        ${item.url ? `<a href="${item.url}" target="_blank" style="display: block; margin-top: 0.5rem; color: #60a5fa; font-size: 0.875rem;">🔗 View Content</a>` : ''}
+                    </div>
+                `).join('');
+            }
+
+            formatTime(timestamp) {
+                if (!timestamp) return '--';
+                const date = new Date(timestamp);
+                const now = new Date();
+                const diffMs = now - date;
+                
+                if (diffMs < 60000) return 'Just now';
+                if (diffMs < 3600000) return `${Math.floor(diffMs / 60000)}m ago`;
+                if (diffMs < 86400000) return `${Math.floor(diffMs / 3600000)}h ago`;
+                
+                return date.toLocaleDateString();
+            }
+
+            escapeHtml(text) {
+                if (!text) return '';
+                return text
+                    .replace(/&/g, '&amp;')
+                    .replace(/</g, '&lt;')
+                    .replace(/>/g, '&gt;')
+                    .replace(/"/g, '&quot;')
+                    .replace(/'/g, '&#039;');
+            }
+
+            showError(message) {
+                const container = document.getElementById('topTrends');
+                container.innerHTML = `<div class="error">${message}</div>`;
+            }
+        }
+
+        // Global functions
+        async function runManualCheck() {
+            try {
+                const response = await fetch('/api/run-check', { method: 'POST' });
+                const result = await response.json();
+                if (result.success) {
+                    alert('Manual check triggered successfully');
+                    // Reload data after a short delay
+                    setTimeout(() => location.reload(), 2000);
+                } else {
+                    alert('Error triggering check');
+                }
+            } catch (error) {
+                alert('Error triggering check - check server logs');
+            }
+        }
+
+        async function showApiStatus() {
+            try {
+                const response = await fetch('/api/results/latest');
+                const data = await response.json();
+                
+                const status = {
+                    'YouTube API': data.topItems?.some(item => item.source === 'youtube') ? '✅ Active' : '❌ Not configured',
+                    'Twitter API': data.topItems?.some(item => item.source === 'twitter') ? '⚠️ Credits depleted' : '❌ Not configured',
+                    'Reddit API': data.topItems?.some(item => item.source === 'reddit') ? '✅ Active' : '❌ Not configured'
+                };
+                
+                alert('API Status:\n' + Object.entries(status).map(([api, stat]) => `${api}: ${stat}`).join('\n'));
+            } catch (error) {
+                alert('API Status: Unable to determine (check server logs)');
+            }
+        }
+
+        // Initialize dashboard
+        document.addEventListener('DOMContentLoaded', () => {
+            new StaticDashboard();
+        });
+    </script>
+</body>
+</html>
